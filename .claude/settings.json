@@ -49,6 +49,13 @@
       "PowerShell(unity command script run*)",
       "PowerShell(unity cmd script eval*)",
       "PowerShell(unity cmd script run*)"
+    ],
+    "deny": [
+      "Read(Library/**)",
+      "Read(Temp/**)",
+      "Read(UserSettings/**)",
+      "Read(**/*.csproj)",
+      "Read(*.slnx)"
     ]
   },
   "hooks": {
@@ -60,6 +67,28 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-packages.js\"",
             "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/Tools/notify.ps1\" -Message \"Готово, жду тебя\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/Tools/notify.ps1\" -Message \"Нужно твоё разрешение\"",
+            "timeout": 15
           }
         ]
       }
