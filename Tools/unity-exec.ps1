@@ -42,21 +42,40 @@ if (Test-Path $lock) {
     }
 }
 
+$ShutdownGraceSeconds = 90
+if (Test-Path $LogFile) { Remove-Item $LogFile -Force }
+
 $argLine = "-batchmode -nographics -quit -projectPath `"$ProjectPath`" -logFile `"$LogFile`" -executeMethod $Method"
 Write-Host "Unity $argLine" -ForegroundColor DarkGray
 $p = Start-Process -FilePath $UnityExe -ArgumentList $argLine -PassThru -NoNewWindow
-if (-not $p.WaitForExit($TimeoutMinutes * 60 * 1000)) {
-    $p.Kill()
-    Write-Host "Unity не завершился за $TimeoutMinutes мин. Лог: $LogFile" -ForegroundColor Red
-    exit 1
+$deadline = (Get-Date).AddMinutes($TimeoutMinutes)
+$doneAt = $null
+$exitCode = $null
+
+# Unity иногда виснет на остановке уже после работы. Маркер успешного выхода в логе + 90 с ожидания -> завершаем сами.
+while (-not $p.WaitForExit(5000)) {
+    if ((Get-Date) -gt $deadline) {
+        $p.Kill()
+        Write-Host "Unity не завершился за $TimeoutMinutes мин. Лог: $LogFile" -ForegroundColor Red
+        exit 1
+    }
+    if (-not (Test-Path $LogFile) -or -not (Select-String -Path $LogFile -Pattern 'Batchmode quit successfully invoked' -Quiet)) { continue }
+    if ($null -eq $doneAt) { $doneAt = Get-Date; continue }
+    if (((Get-Date) - $doneAt).TotalSeconds -ge $ShutdownGraceSeconds) {
+        $p.Kill()
+        Write-Host 'Unity завис при выходе после успешной работы - процесс завершён скриптом.' -ForegroundColor Yellow
+        $exitCode = 0
+        break
+    }
 }
+if ($null -eq $exitCode) { $exitCode = $p.ExitCode }
 
 $compileErrors = @(Select-String -Path $LogFile -Pattern 'error CS\d{4}' | ForEach-Object { $_.Line.Trim() } | Sort-Object -Unique)
 $methodErrors = @(Select-String -Path $LogFile -Pattern 'executeMethod method .* threw exception|could not be found|Exception:' | ForEach-Object { $_.Line.Trim() } | Select-Object -First 10)
-$ok = ($p.ExitCode -eq 0) -and ($compileErrors.Count -eq 0)
+$ok = ($exitCode -eq 0) -and ($compileErrors.Count -eq 0)
 
 Write-Host ''
-Write-Host "[$(if ($ok) { 'OK  ' } else { 'FAIL' })] $Method  exit code: $($p.ExitCode)"
+Write-Host "[$(if ($ok) { 'OK  ' } else { 'FAIL' })] $Method  exit code: $exitCode"
 foreach ($e in $compileErrors) { Write-Host "    $e" -ForegroundColor Red }
 if (-not $ok) { foreach ($e in $methodErrors) { Write-Host "    $e" -ForegroundColor Red } }
 Write-Host "    log: $LogFile"

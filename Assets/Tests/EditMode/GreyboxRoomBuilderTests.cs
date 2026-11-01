@@ -36,6 +36,15 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void DoorPanel_IsNotStatic_SoItCanSwing()
+        {
+            var panel = _root.transform.Find(
+                $"{GreyboxRoomBuilder.LevelName}/{GreyboxRoomBuilder.DoorName}/{GreyboxRoomBuilder.DoorPanelName}");
+
+            Assert.IsFalse(panel.gameObject.isStatic);
+        }
+
+        [Test]
         public void BuildLayout_CreatesSpawnPointsInsideRoom()
         {
             var group = _root.transform.Find(GreyboxRoomBuilder.SpawnPointsName);

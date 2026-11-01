@@ -1,5 +1,8 @@
 using System;
 using System.Linq;
+using Game.Editor.Common;
+using Game.Editor.Prefabs;
+using Game.Gameplay.Interaction;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -8,7 +11,7 @@ namespace Game.Editor.Scenes
 {
     /// <summary>
     /// Сцена-заготовка для первых тестов: комната с дверным проёмом и дверью, коридор за ней,
-    /// четыре точки появления, свет и временная камера. Повторный запуск пересобирает сцену целиком.
+    /// четыре точки появления, свет и игрок на первой точке. Повторный запуск пересобирает сцену целиком.
     /// Batchmode: -executeMethod Game.Editor.Scenes.GreyboxRoomBuilder.BuildFromCommandLine
     /// </summary>
     public static class GreyboxRoomBuilder
@@ -47,7 +50,6 @@ namespace Game.Editor.Scenes
         private const float LampIntensity = 1.5f;
         private const float LampRange = 9f;
         private const float LampDropFromCeiling = 0.3f;
-        private const float EyeHeight = 1.7f;
 
         private static readonly Color FloorColor = new Color(0.32f, 0.32f, 0.34f);
         private static readonly Color WallColor = new Color(0.62f, 0.62f, 0.6f);
@@ -76,11 +78,25 @@ namespace Game.Editor.Scenes
 
         public static void BuildScene()
         {
-            var palette = CreateOrUpdatePalette();
+            CreateOrUpdatePalette();
+            PlayerPrefabBuilder.Build();
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            // Ассеты загружаем после NewScene: смена сцены выгружает неиспользуемые ассеты,
+            // и ссылки, полученные раньше, становятся пустыми.
+            var palette = LoadPalette();
+            var playerPrefab = LoadRequired<GameObject>(PlayerPrefabBuilder.PrefabPath);
+            var doorSettings = LoadRequired<DoorSettings>(PlayerPrefabBuilder.DoorSettingsPath);
 
             var root = new GameObject(RootName);
             BuildLayout(root.transform, palette);
+
+            var door = root.transform.Find($"{LevelName}/{DoorName}").gameObject.AddComponent<Door>();
+            EditorAssetUtility.SetReference(door, "_settings", doorSettings);
+
+            var spawn = root.transform.Find($"{SpawnPointsName}/{SpawnPointPrefix}1");
+            var player = (GameObject)PrefabUtility.InstantiatePrefab(playerPrefab, scene);
+            player.transform.SetPositionAndRotation(spawn.position, spawn.rotation);
 
             if (!EditorSceneManager.SaveScene(scene, ScenePath))
             {
@@ -93,7 +109,7 @@ namespace Game.Editor.Scenes
 
         /// <summary>
         /// Строит всю геометрию, свет и точки появления под root. Не трогает ассеты и сцены -
-        /// поэтому годится для тестов.
+        /// поэтому годится для тестов. Компонент двери и игрок добавляются в BuildScene (им нужны ассеты).
         /// </summary>
         public static void BuildLayout(Transform root, GreyboxPalette palette)
         {
@@ -108,7 +124,6 @@ namespace Game.Editor.Scenes
             BuildDoor(level, palette);
             BuildSpawnPoints(root);
             BuildLighting(root);
-            BuildPreviewCamera(root);
         }
 
         private static void BuildRoom(Transform level, GreyboxPalette palette)
@@ -169,8 +184,9 @@ namespace Game.Editor.Scenes
 
             var panelWidth = DoorWidth - DoorGap * 2f;
             var panelHeight = DoorHeight - DoorGap;
+            // Дверь двигается - статичной её делать нельзя (static batching зафиксирует полотно).
             CreateBox(DoorPanelName, hinge, new Vector3(DoorWidth / 2f, panelHeight / 2f, 0f),
-                new Vector3(panelWidth, panelHeight, DoorThickness), palette.Door);
+                new Vector3(panelWidth, panelHeight, DoorThickness), palette.Door, isStatic: false);
         }
 
         private static void BuildSpawnPoints(Transform root)
@@ -205,16 +221,6 @@ namespace Game.Editor.Scenes
             lampLight.shadows = LightShadows.Soft;
         }
 
-        private static void BuildPreviewCamera(Transform root)
-        {
-            // Временная камера, пока нет игрока: стоит у точек появления и смотрит на дверь.
-            var cameraTransform = CreateChild("PreviewCamera", root);
-            cameraTransform.localPosition = new Vector3(0f, EyeHeight, -RoomDepth / 2f + SpawnRowOffsetFromBackWall);
-            cameraTransform.localRotation = Quaternion.identity;
-            cameraTransform.gameObject.AddComponent<Camera>();
-            cameraTransform.gameObject.tag = "MainCamera";
-        }
-
         private static Transform CreateChild(string name, Transform parent)
         {
             var go = new GameObject(name);
@@ -222,14 +228,15 @@ namespace Game.Editor.Scenes
             return go.transform;
         }
 
-        private static void CreateBox(string name, Transform parent, Vector3 localCenter, Vector3 size, Material material)
+        private static void CreateBox(string name, Transform parent, Vector3 localCenter, Vector3 size, Material material,
+            bool isStatic = true)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
             go.name = name;
             go.transform.SetParent(parent, false);
             go.transform.localPosition = localCenter;
             go.transform.localScale = size;
-            go.isStatic = true;
+            go.isStatic = isStatic;
 
             if (material != null)
             {
@@ -237,19 +244,45 @@ namespace Game.Editor.Scenes
             }
         }
 
-        private static GreyboxPalette CreateOrUpdatePalette()
+        private const string FloorMaterial = "Greybox_Floor";
+        private const string WallMaterial = "Greybox_Wall";
+        private const string CeilingMaterial = "Greybox_Ceiling";
+        private const string DoorMaterial = "Greybox_Door";
+
+        private static void CreateOrUpdatePalette()
         {
-            EnsureFolder(MaterialsFolder);
-            return new GreyboxPalette(
-                CreateOrUpdateMaterial("Greybox_Floor", FloorColor),
-                CreateOrUpdateMaterial("Greybox_Wall", WallColor),
-                CreateOrUpdateMaterial("Greybox_Ceiling", CeilingColor),
-                CreateOrUpdateMaterial("Greybox_Door", DoorColor));
+            EditorAssetUtility.EnsureFolder(MaterialsFolder);
+            CreateOrUpdateMaterial(FloorMaterial, FloorColor);
+            CreateOrUpdateMaterial(WallMaterial, WallColor);
+            CreateOrUpdateMaterial(CeilingMaterial, CeilingColor);
+            CreateOrUpdateMaterial(DoorMaterial, DoorColor);
         }
 
-        private static Material CreateOrUpdateMaterial(string name, Color color)
+        private static GreyboxPalette LoadPalette()
         {
-            var path = $"{MaterialsFolder}/{name}.mat";
+            return new GreyboxPalette(
+                LoadRequired<Material>(MaterialPath(FloorMaterial)),
+                LoadRequired<Material>(MaterialPath(WallMaterial)),
+                LoadRequired<Material>(MaterialPath(CeilingMaterial)),
+                LoadRequired<Material>(MaterialPath(DoorMaterial)));
+        }
+
+        private static string MaterialPath(string name) => $"{MaterialsFolder}/{name}.mat";
+
+        private static T LoadRequired<T>(string path) where T : UnityEngine.Object
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<T>(path);
+            if (asset == null)
+            {
+                throw new InvalidOperationException($"Не найден ассет {path}");
+            }
+
+            return asset;
+        }
+
+        private static void CreateOrUpdateMaterial(string name, Color color)
+        {
+            var path = MaterialPath(name);
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (material == null)
             {
@@ -266,19 +299,6 @@ namespace Game.Editor.Scenes
             material.SetColor(BaseColorProperty, color);
             EditorUtility.SetDirty(material);
             AssetDatabase.SaveAssets();
-            return material;
-        }
-
-        private static void EnsureFolder(string path)
-        {
-            if (AssetDatabase.IsValidFolder(path))
-            {
-                return;
-            }
-
-            var parent = System.IO.Path.GetDirectoryName(path).Replace('\\', '/');
-            EnsureFolder(parent);
-            AssetDatabase.CreateFolder(parent, System.IO.Path.GetFileName(path));
         }
 
         private static void AddSceneToBuildSettings(string scenePath)

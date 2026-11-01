@@ -35,6 +35,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File Tools\verify.ps1 playmode
 3. **editmode / playmode**: `Unity.exe -batchmode -nographics -projectPath <проект> -runTests -testPlatform editmode|playmode -testResults Logs\verify\<platform>-results.xml -logFile Logs\verify\<platform>.log` (без `-quit` - раннер закрывает Unity сам). Exit code раннера: 0 - все прошли, 2 - есть упавшие, 3 и другое - сбой запуска.
 4. Разбирает `results.xml` (NUnit 3): атрибуты `test-run` `total/passed/failed/skipped/inconclusive`, упавшие - `//test-case[@result='Failed']` с `fullname` и первой строкой `failure/message`. Если xml не создан - ищет в логе `error CS` (обычно это ошибка компиляции тестовой сборки).
 5. Пишет сводку в `Logs\verify\summary.txt` и в stdout.
+6. **Зависание Unity на выходе.** Иногда Unity доделывает работу и виснет при остановке (в логе последние строки - `abort_threads: Failed aborting ...`). Скрипт ждёт маркер завершения в логе (`Batchmode quit successfully invoked` или `Test run completed. Exiting with code N`), даёт ещё 90 с (`-ShutdownGraceSeconds`) и завершает процесс сам; код выхода берётся из маркера, в сводке - строка `note: Unity завис при выходе...`. Это не ошибка проекта. Перед запуском старый лог удаляется, чтобы не принять старый маркер за новый.
 
 ## Файлы в `Logs\verify\` (папка `Logs/` в .gitignore)
 

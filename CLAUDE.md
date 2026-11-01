@@ -36,7 +36,7 @@ Assets/
 | Сборка | Ссылается на | НЕ ссылается на |
 |---|---|---|
 | `Game.Core` | - | Netcode, UI, Gameplay |
-| `Game.Gameplay` | Core | **Netcode**, UI |
+| `Game.Gameplay` | Core, Unity.InputSystem (только для чтения ввода, `Gameplay/Player/PlayerInputReader`) | **Netcode**, UI |
 | `Game.Network` | Core, Gameplay, Unity.Netcode.* , Unity.Services.* | UI |
 | `Game.UI` | Core, Gameplay | Netcode напрямую |
 | `Game.Audio` | Core, Gameplay | Netcode, UI |

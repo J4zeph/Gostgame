@@ -18,10 +18,13 @@ param(
 
     [string]$UnityExe = $(if ($env:UNITY_EXE) { $env:UNITY_EXE } else { 'C:\Program Files\Unity\Hub\Editor\6000.6.7f1\Editor\Unity.exe' }),
 
-    [int]$TimeoutMinutes = 30
+    [int]$TimeoutMinutes = 30,
+
+    [int]$ShutdownGraceSeconds = 90
 )
 
 $ErrorActionPreference = 'Stop'
+$script:ShutdownHangs = @()
 
 $ProjectPath = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $OutDir = Join-Path $ProjectPath 'Logs\verify'
@@ -43,16 +46,43 @@ function Test-ProjectLocked {
 }
 
 function Invoke-Unity([string[]]$UnityArgs, [string]$LogFile) {
+    # Старый лог удаляем, иначе маркер завершения из прошлого прогона примется за текущий.
+    if (Test-Path $LogFile) { Remove-Item $LogFile -Force }
     $all = @('-batchmode', '-nographics', '-projectPath', $ProjectPath, '-logFile', $LogFile) + $UnityArgs
     # Start-Process не экранирует пробелы сам ("My project"), поэтому собираем строку вручную.
     $argLine = ($all | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
     Write-Host "Unity $argLine" -ForegroundColor DarkGray
     $p = Start-Process -FilePath $UnityExe -ArgumentList $argLine -PassThru -NoNewWindow
-    if (-not $p.WaitForExit($TimeoutMinutes * 60 * 1000)) {
-        $p.Kill()
-        throw "Unity не завершился за $TimeoutMinutes мин. Лог: $LogFile"
+    $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
+    $doneAt = $null
+
+    # Unity иногда виснет уже после работы, на остановке (abort_threads). Если в логе есть маркер
+    # завершения, а процесс жив дольше $ShutdownGraceSeconds - завершаем его и берём код из лога.
+    while (-not $p.WaitForExit(5000)) {
+        if ((Get-Date) -gt $deadline) {
+            $p.Kill()
+            throw "Unity не завершился за $TimeoutMinutes мин. Лог: $LogFile"
+        }
+
+        $marker = Get-DoneMarker $LogFile
+        if ($null -eq $marker) { continue }
+        if ($null -eq $doneAt) { $doneAt = Get-Date; continue }
+        if (((Get-Date) - $doneAt).TotalSeconds -ge $ShutdownGraceSeconds) {
+            $p.Kill()
+            $script:ShutdownHangs += (Split-Path $LogFile -Leaf)
+            Write-Host "Unity завис при выходе после завершения работы - процесс завершён, код взят из лога: $marker" -ForegroundColor Yellow
+            return $marker
+        }
     }
     return $p.ExitCode
+}
+
+function Get-DoneMarker([string]$LogFile) {
+    if (-not (Test-Path $LogFile)) { return $null }
+    $tests = Select-String -Path $LogFile -Pattern 'Test run completed\. Exiting with code (\d+)' | Select-Object -Last 1
+    if ($tests) { return [int]$tests.Matches[0].Groups[1].Value }
+    if (Select-String -Path $LogFile -Pattern 'Batchmode quit successfully invoked' -Quiet) { return 0 }
+    return $null
 }
 
 function Get-CompileErrors([string]$LogFile) {
@@ -151,6 +181,10 @@ foreach ($r in $results) {
     foreach ($e in $r.Errors) { $lines += "    $e" }
     if ($r.PSObject.Properties['FailedTests']) { foreach ($t in $r.FailedTests) { $lines += "    FAILED $t" } }
     $lines += "    log: $($r.Log)"
+}
+
+if ($script:ShutdownHangs.Count -gt 0) {
+    $lines += "note: Unity завис при выходе и был завершён скриптом: $($script:ShutdownHangs -join ', ')"
 }
 
 $green = (-not $script:Locked) -and ($results.Count -eq $steps.Count) -and -not ($results | Where-Object { -not $_.Ok })

@@ -19,6 +19,13 @@ description: Как менять сцены, префабы, материалы,
 - Ошибка = исключение (`throw`). Unity с `-quit` вернёт ненулевой код, `unity-exec.ps1` покажет FAIL. Не глотать исключения, не `Debug.LogError` вместо `throw`.
 - Итог работы - одна строка `Debug.Log("[ИмяИнструмента] ...")`, по ней видно результат в логе.
 
+## Ловушки
+
+- `Game.Gameplay.Player.PlayerSettings` совпадает по имени с `UnityEditor.PlayerSettings`. В editor-коде - алиас: `using PlayerSettings = Game.Gameplay.Player.PlayerSettings;`.
+- Компонент, которому нужны ссылки до `Awake`, собирай выключенным: `go.SetActive(false)` -> `AddComponent` -> `Init(...)` / `SetReference` -> `SetActive(true)`. В edit mode `Awake` не вызывается, в PlayMode-тестах - вызывается сразу при `AddComponent` на активном объекте.
+- Движущиеся объекты (двери, ящики) не помечать `isStatic` - static batching зафиксирует их.
+- `EditorSceneManager.NewScene(..., Single)` выгружает неиспользуемые ассеты: ссылки на ассеты, полученные **до** неё, становятся пустыми (в сцену запишется `{fileID: 0}`). Загружай ассеты после создания сцены.
+
 ## Идемпотентность
 
 Повторный запуск должен давать тот же результат, а не дубли:
@@ -65,6 +72,8 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File Tools\unity-exec.ps1 Game.Editor.S
 
 | Инструмент | Меню | Batchmode-метод | Что делает |
 |---|---|---|---|
-| `GreyboxRoomBuilder` | Tools/Gostgame/Build Greybox Room | `Game.Editor.Scenes.GreyboxRoomBuilder.BuildFromCommandLine` | Сцена `Assets/_Game/Scenes/Greybox_Room.unity`: комната 8x8x3 м, дверь с пивотом на петле, коридор, 4 точки появления, свет, временная камера; материалы в `_Game/Art/Materials` |
+| `GreyboxRoomBuilder` | Tools/Gostgame/Build Greybox Room | `Game.Editor.Scenes.GreyboxRoomBuilder.BuildFromCommandLine` | Сцена `Assets/_Game/Scenes/Greybox_Room.unity`: комната 8x8x3 м, дверь (компонент `Door`) с пивотом на петле, коридор, 4 точки появления, свет, игрок на `SpawnPoint_1`; материалы в `_Game/Art/Materials`. Сначала вызывает `PlayerPrefabBuilder` |
+| `PlayerPrefabBuilder` | Tools/Gostgame/Build Player Prefab | `Game.Editor.Prefabs.PlayerPrefabBuilder.BuildFromCommandLine` | Ассеты настроек в `_Game/Data` (Player/Equipment/Interaction; существующие не трогает) и префаб `_Game/Prefabs/Player.prefab` (перезаписывается: настраивать значения в ассетах) |
+| `EditorAssetUtility` | - | - | Общие helpers: `EnsureFolder`, `LoadOrCreateScriptableObject<T>`, `SetReference` (запись в `[SerializeField] private`) |
 
 Новый инструмент - добавь строку сюда.
