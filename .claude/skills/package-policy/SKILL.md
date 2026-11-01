@@ -16,6 +16,7 @@ description: Контроль пакетов Unity и сторонних асс�
 | Пакеты шаблона Universal 3D (URP, Input System, uGUI, Test Framework, IDE, Collab, `com.unity.modules.*`) | как в manifest на 2026-11-01 | база проекта | шаблон |
 | `com.unity.netcode.gameobjects` | 2.13.3 | мультиплеер (NGO) | 2026-11-01 |
 | `com.unity.multiplayer.playmode` | 3.0.0 | второй игрок в редакторе без сборки | 2026-11-01 |
+| `com.unity.pipeline` | 0.9.1-exp.1 (**experimental**, одобрена именно эта версия; обновление - только с согласия) | сервер в редакторе для Unity CLI (`unity status/command/recompile/test`) и MCP | 2026-11-01 |
 
 Ожидаются по плану, но **ещё НЕ одобрены** (спросить, когда дойдём): Unity Relay/Lobby (`com.unity.services.multiplayer`), Vivox.
 

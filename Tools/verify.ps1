@@ -1,13 +1,14 @@
 <#
 .SYNOPSIS
-    Проверка Unity-проекта в batchmode: компиляция, EditMode- и PlayMode-тесты.
+    Проверка Unity-проекта: компиляция, EditMode- и PlayMode-тесты, консоль.
+    Редактор закрыт -> batchmode. Редактор открыт и пакет com.unity.pipeline готов -> через Unity CLI в этом редакторе.
 
 .EXAMPLE
     pwsh -NoProfile -ExecutionPolicy Bypass -File Tools\verify.ps1 all
 
 .NOTES
     Коды выхода: 0 - зелёный, 1 - есть ошибки компиляции/упавшие тесты/сбой запуска,
-                 2 - проект открыт в редакторе (заблокирован).
+                 2 - проект открыт в редакторе, но проверить через него нельзя (сервер Pipeline не готов, Play Mode).
     Логи и результаты: Logs\verify\
 #>
 [CmdletBinding()]
@@ -15,6 +16,9 @@ param(
     [Parameter(Position = 0)]
     [ValidateSet('compile', 'editmode', 'playmode', 'all')]
     [string]$Mode = 'all',
+
+    [ValidateSet('auto', 'editor', 'batch')]
+    [string]$Via = 'auto',
 
     [string]$UnityExe = $(if ($env:UNITY_EXE) { $env:UNITY_EXE } else { 'C:\Program Files\Unity\Hub\Editor\6000.6.7f1\Editor\Unity.exe' }),
 
@@ -146,15 +150,149 @@ function Invoke-Tests([string]$Platform) {
     return $result
 }
 
+# --- режим «через открытый редактор» (Unity CLI + com.unity.pipeline) ---
+
+$env:UNITY_NO_BANNER = '1'
+$env:UNITY_NO_PAGER = '1'
+$env:UNITY_NON_INTERACTIVE = '1'
+
+function Invoke-UnityCli([string[]]$CliArgs, [string]$SaveTo) {
+    $raw = (& unity @CliArgs 2>$null) -join "`n"
+    if ($SaveTo) { $raw | Set-Content -Encoding utf8 $SaveTo }
+    try { return $raw | ConvertFrom-Json } catch { return $null }
+}
+
+function Get-EditorState {
+    # $null - CLI нет или редактор с этим проектом не отвечает через Pipeline.
+    if (-not (Get-Command unity -ErrorAction SilentlyContinue)) { return $null }
+    $status = Invoke-UnityCli @('status', '--project-path', $ProjectPath, '--json') $null
+    if ($null -eq $status -or -not $status.success -or $status.data.count -lt 1) { return $null }
+    return $status.data.instances[0]
+}
+
+function Format-CliError($e) {
+    if ($e -is [string]) { return $e }
+    $where = if ($e.file) { "$($e.file)($($e.line)): " } else { '' }
+    $text = if ($e.message) { $e.message } else { ($e | ConvertTo-Json -Compress) }
+    return "$where$text"
+}
+
+function Invoke-EditorCompile {
+    Write-Section 'Compile (editor)'
+    $log = Join-Path $OutDir 'compile.json'
+    $r = Invoke-UnityCli @('recompile', '--project-path', $ProjectPath, '--timeout', '300', '--json') $log
+    if ($null -eq $r) {
+        return [pscustomobject]@{ Step = 'compile'; Ok = $false; Errors = @('Unity CLI не вернул ответ (см. compile.json)'); Log = $log; Summary = 'нет ответа от редактора' }
+    }
+
+    $errors = @($r.data.errors | ForEach-Object { Format-CliError $_ })
+    $warnings = [int]$r.data.summary.warnings
+    $ok = $r.success -and -not $r.data.failed -and $errors.Count -eq 0
+    return [pscustomobject]@{
+        Step = 'compile'; Ok = $ok; Errors = $errors; Log = $log
+        Summary = "ошибок компиляции: $($errors.Count), предупреждений: $warnings, статус: $($r.data.status)"
+    }
+}
+
+function New-TestResult([string]$Step, $Summary, $Results, [string]$Log, [string]$RunError) {
+    $failed = @($Results | Where-Object { $_.Status -eq 'Failed' } | ForEach-Object {
+            $msg = if ($_.Message) { ($_.Message -split "`n")[0].Trim() } else { '' }
+            "$($_.FullName): $msg"
+        })
+    # Доступ к свойствам в PowerShell не зависит от регистра: Total и total (ответы test run / test status) - одно поле.
+    $total = [int]$Summary.Total
+    $passed = [int]$Summary.Passed
+    $failedCount = [int]$Summary.Failed
+    $skipped = [int]$Summary.Skipped + [int]$Summary.Inconclusive
+    $ok = (-not $RunError) -and $failedCount -eq 0
+    $text = if ($RunError) { "ошибка запуска: $RunError" } else { "всего: $total, прошло: $passed, упало: $failedCount, пропущено: $skipped" }
+    return [pscustomobject]@{
+        Step = $Step; Ok = $ok; Total = $total; Passed = $passed; Failed = $failedCount; Skipped = $skipped
+        FailedTests = $failed; Errors = @(); Log = $Log; Summary = $text
+    }
+}
+
+function Invoke-EditorTests([string]$Platform) {
+    Write-Section "Tests: $Platform (editor)"
+    $log = Join-Path $OutDir "$Platform-results.json"
+    $state = Get-EditorState
+    if ($null -ne $state) {
+        $editor = Invoke-UnityCli @('command', 'editor', 'status', '--project-path', $ProjectPath, '--result-only') $null
+        if ($null -ne $editor -and $editor.playMode -ne 'stopped') {
+            return New-TestResult $Platform @{} @() $log 'редактор в Play Mode - выйди из него (тесты в чужом Play Mode не запускаем)'
+        }
+    }
+
+    if ($Platform -eq 'editmode') {
+        $r = Invoke-UnityCli @('command', 'test', 'run', '--project-path', $ProjectPath, '--result-only', '--timeout', "$($TimeoutMinutes * 60)", '--', '--mode', 'editor') $log
+        if ($null -eq $r -or -not $r.success) {
+            $err = if ($null -ne $r -and $r.error) { $r.error } else { 'нет ответа от редактора' }
+            return New-TestResult $Platform @{} @() $log $err
+        }
+        return New-TestResult $Platform $r.Summary $r.Results $log $null
+    }
+
+    # PlayMode: вход в Play Mode перезагружает домен и рвёт синхронный запрос, поэтому - асинхронно + опрос статуса.
+    $start = Invoke-UnityCli @('command', 'test', 'run', '--project-path', $ProjectPath, '--result-only', '--', '--mode', 'playmode', '--async_tests', 'true') $null
+    if ($null -eq $start -or -not $start.success) {
+        $err = if ($null -ne $start -and $start.error) { $start.error } else { 'не удалось запустить PlayMode-тесты' }
+        return New-TestResult $Platform @{} @() $log $err
+    }
+
+    $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
+    do {
+        Start-Sleep -Seconds 2
+        $s = Invoke-UnityCli @('command', 'test', 'status', '--project-path', $ProjectPath, '--result-only') $log
+        $status = if ($null -ne $s) { "$($s.status)" } else { '' }
+    } while ($status -notin @('completed', 'failed', 'error', 'cancelled') -and (Get-Date) -lt $deadline)
+
+    if ($status -ne 'completed' -and $status -ne 'failed') {
+        $err = if ($status) { "статус: $status" } else { "нет результата за $TimeoutMinutes мин" }
+        return New-TestResult $Platform @{} @() $log $err
+    }
+    return New-TestResult $Platform $s.summary $s.results $log $null
+}
+
+function Get-EditorConsoleNotes {
+    $c = Invoke-UnityCli @('command', 'console', 'status', '--project-path', $ProjectPath, '--result-only') (Join-Path $OutDir 'console.json')
+    if ($null -eq $c) { return @('console: нет ответа') }
+    $notes = @("console: ошибок $($c.groundTruth.consoleErrors), предупреждений $($c.groundTruth.consoleWarnings), compilationFailed: $($c.groundTruth.compilationFailed)")
+    if ([int]$c.groundTruth.consoleErrors -gt 0) {
+        $tail = Invoke-UnityCli @('command', 'console', 'get', '--project-path', $ProjectPath, '--result-only', '--', '--tail', '10', '--level', 'error') $null
+        foreach ($e in @($tail.entries)) {
+            $notes += "    console error: $(($e.message -split "`n")[0])"
+        }
+    }
+    return $notes
+}
+
 # --- main ---
 
-if (-not (Test-Path $UnityExe)) {
+$script:Locked = $false
+$script:LockReason = ''
+$script:Notes = @()
+$useEditor = $false
+
+$editorOpen = Test-ProjectLocked
+if ($Via -eq 'editor' -or ($Via -eq 'auto' -and $editorOpen)) {
+    $state = Get-EditorState
+    if ($null -ne $state -and $state.state -eq 'ready') {
+        $useEditor = $true
+    } else {
+        $why = if (-not (Get-Command unity -ErrorAction SilentlyContinue)) { 'нет Unity CLI (unity) в PATH' }
+               elseif ($null -eq $state) { 'сервер Pipeline в редакторе не отвечает (переключись на окно Unity, проверь пакет com.unity.pipeline)' }
+               else { "редактор в состоянии '$($state.state)'" }
+        Write-Host "PROJECT LOCKED: проект открыт в редакторе, а проверить через него нельзя: $why. Не обхожу - переключись на Unity или закрой его." -ForegroundColor Yellow
+        exit 2
+    }
+}
+
+if (-not $useEditor -and -not (Test-Path $UnityExe)) {
     Write-Host "Unity.exe не найден: $UnityExe. Укажи -UnityExe или переменную UNITY_EXE." -ForegroundColor Red
     exit 1
 }
 
-$script:Locked = $false
-if (Test-ProjectLocked) {
+if (-not $useEditor -and $editorOpen) {
     Write-Host 'PROJECT LOCKED: проект открыт в редакторе Unity. Закрой Unity и запусти проверку снова.' -ForegroundColor Yellow
     exit 2
 }
@@ -168,20 +306,29 @@ $steps = switch ($Mode) {
 
 $results = @()
 foreach ($s in $steps) {
-    $r = if ($s -eq 'compile') { Invoke-Compile } else { Invoke-Tests $s }
+    $r = if ($useEditor) {
+        if ($s -eq 'compile') { Invoke-EditorCompile } else { Invoke-EditorTests $s }
+    } else {
+        if ($s -eq 'compile') { Invoke-Compile } else { Invoke-Tests $s }
+    }
     $results += $r
     if ($script:Locked) { break }
     # Без компиляции тесты гонять бессмысленно.
     if ($s -eq 'compile' -and -not $r.Ok) { break }
 }
 
-$lines = @("verify $Mode  $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')", '')
+if ($useEditor) { $script:Notes += Get-EditorConsoleNotes }
+
+$viaText = if ($useEditor) { "editor (Unity CLI, pid $($state.pid), port $($state.port))" } else { 'batchmode' }
+$lines = @("verify $Mode  $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')  via: $viaText", '')
 foreach ($r in $results) {
     $lines += "[$(if ($r.Ok) { 'OK  ' } else { 'FAIL' })] $($r.Step): $($r.Summary)"
     foreach ($e in $r.Errors) { $lines += "    $e" }
     if ($r.PSObject.Properties['FailedTests']) { foreach ($t in $r.FailedTests) { $lines += "    FAILED $t" } }
     $lines += "    log: $($r.Log)"
 }
+
+foreach ($n in $script:Notes) { $lines += $n }
 
 if ($script:ShutdownHangs.Count -gt 0) {
     $lines += "note: Unity завис при выходе и был завершён скриптом: $($script:ShutdownHangs -join ', ')"
