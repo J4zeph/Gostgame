@@ -79,7 +79,7 @@ private void OnOpenChanged(bool previous, bool current) => _door.SetOpen(current
 
 ## Сетевой объект сцены (дверь, выключатель)
 
-`NetworkObject` на объекте в сцене. После сохранения сцены (она должна быть в Build Settings) - `NetworkObjectHashUtility.RefreshScene(scene)` и сохранить ещё раз (так делает `GreyboxRoomBuilder`). Управление сценами NGO сейчас выключено (`EnableSceneManagement = false`): все играют в одной сцене, загруженной до подключения. Когда появится лобби и загрузка уровня - включить и грузить сцены только хостом через `NetworkManager.SceneManager`.
+`NetworkObject` на объекте в сцене. После сохранения сцены (она должна быть в Build Settings) - `NetworkObjectHashUtility.RefreshScene(scene)` и сохранить ещё раз (так делает `HouseBuilder`). Управление сценами NGO **включено** (`EnableSceneManagement = true`): без него клиент ищет объекты сцены среди префабов, не находит (`Failed to create object locally. NetworkPrefab could not be found`) и не показывает их. Все играют в одной сцене, загруженной до подключения; хост после `StartHost` ставит `SceneManager.SetClientSynchronizationMode(LoadSceneMode.Additive)` (`NetworkSessionService`), чтобы клиент не перезагружал уже открытую сцену. Новые сцены грузит только хост через `NetworkManager.SceneManager`. Тесты на хосте в одном процессе этот случай не ловят - объекты сцены проверять вдвоём (Multiplayer Play Mode; после пересборки сцены перезапустить Player 2).
 
 ## Ссылки сборки
 

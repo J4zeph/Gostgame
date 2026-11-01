@@ -16,6 +16,7 @@ namespace Game.Network.Player
         [SerializeField] private Camera _camera;
         [SerializeField] private AudioListener _listener;
         [SerializeField] private PlayerCameraFov _fieldOfView;
+        [SerializeField] private PlayerBody _body;
 
         public override void OnNetworkSpawn()
         {
@@ -34,6 +35,10 @@ namespace Game.Network.Player
             _camera.enabled = local;
             _listener.enabled = local;
             _fieldOfView.enabled = local;
+            if (_body != null)
+            {
+                _body.SetFirstPerson(local);
+            }
         }
     }
 }

@@ -85,5 +85,61 @@ namespace Game.Tests.PlayMode
             _flashlight.SetOn(true);
             Assert.IsTrue(_light.enabled);
         }
+
+        [UnityTest]
+        public IEnumerator LightSwitch_NotHandledLocally_OnlyRequests_ThenLightsOnSetOn()
+        {
+            var settings = ScriptableObject.CreateInstance<LightSwitchSettings>();
+            var lampObject = new GameObject("Lamp");
+            var lamp = lampObject.AddComponent<Light>();
+            var switchObject = new GameObject("LightSwitch");
+            switchObject.SetActive(false);
+            var lightSwitch = switchObject.AddComponent<LightSwitch>();
+            lightSwitch.Init(settings, new[] { lamp });
+            switchObject.SetActive(true);
+
+            Assert.IsFalse(lamp.enabled, "По умолчанию свет в доме выключен");
+
+            lightSwitch.HandleInteractLocally = false;
+            var requests = 0;
+            lightSwitch.InteractRequested += _ => requests++;
+
+            lightSwitch.Interact(switchObject);
+            yield return null;
+
+            Assert.AreEqual(1, requests);
+            Assert.IsFalse(lamp.enabled, "Свет не должен включаться без решения хоста");
+
+            lightSwitch.SetOn(true);
+            Assert.IsTrue(lamp.enabled);
+
+            Object.Destroy(switchObject);
+            Object.Destroy(lampObject);
+            Object.Destroy(settings);
+        }
+
+        [UnityTest]
+        public IEnumerator LightSwitch_HandledLocally_TogglesAllLamps()
+        {
+            var settings = ScriptableObject.CreateInstance<LightSwitchSettings>();
+            var lamps = new[] { new GameObject("Lamp1").AddComponent<Light>(), new GameObject("Lamp2").AddComponent<Light>() };
+            var switchObject = new GameObject("LightSwitch");
+            switchObject.SetActive(false);
+            var lightSwitch = switchObject.AddComponent<LightSwitch>();
+            lightSwitch.Init(settings, lamps);
+            switchObject.SetActive(true);
+            yield return null;
+
+            lightSwitch.Interact(switchObject);
+
+            Assert.IsTrue(lightSwitch.IsOn);
+            Assert.IsTrue(lamps[0].enabled && lamps[1].enabled, "Выключатель зажигает все лампы комнаты");
+            Assert.AreEqual(settings.TurnOffPrompt, lightSwitch.Prompt);
+
+            Object.Destroy(switchObject);
+            Object.Destroy(lamps[0].gameObject);
+            Object.Destroy(lamps[1].gameObject);
+            Object.Destroy(settings);
+        }
     }
 }

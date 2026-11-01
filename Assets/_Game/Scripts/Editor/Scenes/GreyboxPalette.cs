@@ -11,13 +11,20 @@ namespace Game.Editor.Scenes
         public readonly Material Wall;
         public readonly Material Ceiling;
         public readonly Material Door;
+        public readonly Material Ground;
+        public readonly Material Furniture;
+        public readonly Material Fixture;
 
-        public GreyboxPalette(Material floor, Material wall, Material ceiling, Material door)
+        public GreyboxPalette(Material floor, Material wall, Material ceiling, Material door,
+            Material ground, Material furniture, Material fixture)
         {
             Floor = floor;
             Wall = wall;
             Ceiling = ceiling;
             Door = door;
+            Ground = ground;
+            Furniture = furniture;
+            Fixture = fixture;
         }
     }
 }

@@ -15,7 +15,7 @@ namespace Game.Tests.EditMode
         private const string ZeroHash = "GlobalObjectIdHash: 0";
 
         [TestCase(PlayerPrefabBuilder.PrefabPath)]
-        [TestCase(GreyboxRoomBuilder.ScenePath)]
+        [TestCase(HouseBuilder.ScenePath)]
         public void NetworkObjects_HaveNonZeroGlobalObjectIdHash(string assetPath)
         {
             Assert.IsTrue(File.Exists(assetPath), $"Нет файла {assetPath} - запусти генератор");

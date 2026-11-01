@@ -57,7 +57,7 @@ description: Как менять сцены, префабы, материалы,
 Агент - в batchmode (редактор должен быть закрыт):
 
 ```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File Tools\unity-exec.ps1 Game.Editor.Scenes.GreyboxRoomBuilder.BuildFromCommandLine
+pwsh -NoProfile -ExecutionPolicy Bypass -File Tools\unity-exec.ps1 Game.Editor.Scenes.HouseBuilder.BuildFromCommandLine
 ```
 
 Коды выхода: 0 - успех, 1 - метод упал / ошибки компиляции / метод не найден, 2 - проект открыт в редакторе (не обходить, сказать пользователю закрыть Unity). Лог: `Logs\exec\<Метод>.log`.
@@ -74,9 +74,10 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File Tools\unity-exec.ps1 Game.Editor.S
 
 | Инструмент | Меню | Batchmode-метод | Что делает |
 |---|---|---|---|
-| `GreyboxRoomBuilder` | Tools/Gostgame/Build Greybox Room | `Game.Editor.Scenes.GreyboxRoomBuilder.BuildFromCommandLine` | Сцена `Assets/_Game/Scenes/Greybox_Room.unity`: комната 8x8x3 м, дверь (компонент `Door`) с пивотом на петле, коридор, 4 точки появления, свет, игрок на `SpawnPoint_1`; материалы в `_Game/Art/Materials`. Сначала вызывает `PlayerPrefabBuilder` |
+| `HouseBuilder` | Tools/Gostgame/Build House | `Game.Editor.Scenes.HouseBuilder.BuildFromCommandLine` | Сцена `Assets/_Game/Scenes/House.unity` (первая в Build Settings): геометрия из `HouseLayout` (коридор + 4 комнаты, двор со стартовой зоной и 4 точками появления, шкаф в спальне), сетевые двери (`Door`+`NetworkDoor`), выключатели (`LightSwitch`+`NetworkLightSwitch`) с лампами, NetworkManager, HUD и меню; материалы в `_Game/Art/Materials`, настройки `LightSwitchSettings`/`WardrobeDoorSettings` в `_Game/Data/Interaction`. Сначала вызывает `UiAssetsBuilder`, `PlayerPrefabBuilder`, `NetworkAssetsBuilder` |
+| `HouseLayout` | - | - | Только геометрия и пустые узлы дома (без компонентов и ассетов), для EditMode-тестов: `BuildLayout(root, palette)`, список комнат `Rooms` |
 | `PlayerPrefabBuilder` | Tools/Gostgame/Build Player Prefab | `Game.Editor.Prefabs.PlayerPrefabBuilder.BuildFromCommandLine` | Ассеты настроек в `_Game/Data` (Player/Equipment/Interaction; существующие не трогает) и префаб `_Game/Prefabs/Player.prefab` (перезаписывается: настраивать значения в ассетах) |
-| `UiAssetsBuilder` | Tools/Gostgame/Build UI Assets | `Game.Editor.UiAssets.UiAssetsBuilder.BuildFromCommandLine` | `_Game/Data/UI/GamePanelSettings.asset` (тема `_Game/Art/UI/GameTheme.tss`, 1920x1080) и `_Game/Data/Settings/ControlSettingsConfig.asset`. Стили `.uss`/`.tss` - текстовые файлы в `_Game/Art/UI`, правятся напрямую. `GreyboxRoomBuilder` вызывает его и добавляет в сцену SettingsManager, HUD и SettingsMenu |
-| `EditorAssetUtility` | - | - | Общие helpers: `EnsureFolder`, `LoadOrCreateScriptableObject<T>`, `SetReference` (запись в `[SerializeField] private`) |
+| `UiAssetsBuilder` | Tools/Gostgame/Build UI Assets | `Game.Editor.UiAssets.UiAssetsBuilder.BuildFromCommandLine` | `_Game/Data/UI/GamePanelSettings.asset` (тема `_Game/Art/UI/GameTheme.tss`, 1920x1080) и `_Game/Data/Settings/ControlSettingsConfig.asset`. Стили `.uss`/`.tss` - текстовые файлы в `_Game/Art/UI`, правятся напрямую. `HouseBuilder` вызывает его и добавляет в сцену SettingsManager, HUD и SettingsMenu |
+| `EditorAssetUtility` | - | - | Общие helpers: `EnsureFolder`, `LoadOrCreateScriptableObject<T>`, `SetReference` / `SetReferences` (запись ссылки или массива ссылок в `[SerializeField] private`) |
 
 Новый инструмент - добавь строку сюда.

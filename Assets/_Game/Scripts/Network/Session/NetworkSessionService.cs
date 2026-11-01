@@ -4,6 +4,7 @@ using Game.Gameplay.Player;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Game.Network.Session
 {
@@ -76,6 +77,13 @@ namespace Game.Network.Session
             SetState(SessionState.Starting, string.Empty);
             if (_network.StartHost())
             {
+                // Клиент уже стоит в той же сцене: при синхронизации NGO использует её, а не перезагружает
+                // (иначе пересоздались бы меню и NetworkManager клиента). Объекты сцены сопоставляются по хешу.
+                if (_network.SceneManager != null)
+                {
+                    _network.SceneManager.SetClientSynchronizationMode(LoadSceneMode.Additive);
+                }
+
                 SetState(SessionState.Host, string.Empty);
             }
             else

@@ -3,7 +3,7 @@
     Запуск статического editor-метода Unity в batchmode (-executeMethod).
 
 .EXAMPLE
-    pwsh -NoProfile -ExecutionPolicy Bypass -File Tools\unity-exec.ps1 Game.Editor.Scenes.GreyboxRoomBuilder.BuildFromCommandLine
+    pwsh -NoProfile -ExecutionPolicy Bypass -File Tools\unity-exec.ps1 Game.Editor.Scenes.HouseBuilder.BuildFromCommandLine
 
 .NOTES
     Метод должен быть public static, без параметров, синхронный; ошибку сообщает исключением.

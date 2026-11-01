@@ -1,6 +1,4 @@
-using Game.Core.Interaction;
 using Game.Gameplay.Interaction;
-using Game.Gameplay.Player;
 using Game.Network.Session;
 using Unity.Netcode;
 using UnityEngine;
@@ -59,30 +57,12 @@ namespace Game.Network.Interaction
         [Rpc(SendTo.Server)]
         private void RequestToggleRpc(RpcParams rpcParams = default)
         {
-            if (!CanReach(rpcParams.Receive.SenderClientId))
+            if (!HostReachCheck.CanReach(NetworkManager, rpcParams.Receive.SenderClientId, _collider, _settings))
             {
                 return;
             }
 
             _isOpen.Value = !_isOpen.Value;
-        }
-
-        private bool CanReach(ulong clientId)
-        {
-            if (!NetworkManager.ConnectedClients.TryGetValue(clientId, out var client) || client.PlayerObject == null)
-            {
-                return false;
-            }
-
-            var player = client.PlayerObject.GetComponent<PlayerController>();
-            if (player == null || player.Settings == null || _collider == null)
-            {
-                return false;
-            }
-
-            var eye = player.CameraPivot != null ? player.CameraPivot.position : player.transform.position;
-            var slack = _settings != null ? _settings.ReachSlack : 0f;
-            return ReachRules.IsWithinReach(eye, _collider.ClosestPoint(eye), player.Settings.InteractDistance, slack);
         }
 
         private void OnOpenChanged(bool previous, bool current)

@@ -28,6 +28,8 @@ namespace Game.Gameplay.Player
 
         [Header("Взаимодействие, м")]
         [SerializeField, Min(0.1f)] private float _interactDistance = 2f;
+        [SerializeField, Min(0f), Tooltip("Если точный луч прицела не попал в интерактивный объект - ищем его в этом радиусе вокруг луча")]
+        private float _interactAssistRadius = 0.15f;
 
         public float WalkSpeed => _walkSpeed;
         public float SprintSpeed => _sprintSpeed;
@@ -40,5 +42,6 @@ namespace Game.Gameplay.Player
         public float Radius => _radius;
         public float EyeHeight => _eyeHeight;
         public float InteractDistance => _interactDistance;
+        public float InteractAssistRadius => _interactAssistRadius;
     }
 }

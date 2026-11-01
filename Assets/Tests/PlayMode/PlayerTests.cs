@@ -204,6 +204,42 @@ namespace Game.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator Interact_SmallSwitchJustBesideCrosshair_IsFound()
+        {
+            return InteractWithSwitchBesideCrosshair(0.1f, expectedOn: true);
+        }
+
+        [UnityTest]
+        public IEnumerator Interact_SmallSwitchFarFromCrosshair_IsIgnored()
+        {
+            return InteractWithSwitchBesideCrosshair(0.5f, expectedOn: false);
+        }
+
+        private IEnumerator InteractWithSwitchBesideCrosshair(float sideOffset, bool expectedOn)
+        {
+            _doorObject.SetActive(false);
+            var settings = ScriptableObject.CreateInstance<LightSwitchSettings>();
+            var switchObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            switchObject.SetActive(false);
+            switchObject.transform.position = _player.CameraPivot.position + new Vector3(sideOffset, 0f, 1f);
+            switchObject.transform.localScale = new Vector3(0.08f, 0.12f, 0.04f);
+            var lightSwitch = switchObject.AddComponent<LightSwitch>();
+            lightSwitch.Init(settings, null);
+            switchObject.SetActive(true);
+            Physics.SyncTransforms();
+            yield return null;
+
+            _input.PressInteract();
+            yield return null;
+
+            Assert.AreEqual(expectedOn, lightSwitch.IsOn,
+                expectedOn ? "Выключатель рядом с прицелом не нашёлся" : "Сработал выключатель далеко от прицела");
+
+            Object.Destroy(switchObject);
+            Object.Destroy(settings);
+        }
+
+        [UnityTest]
         public IEnumerator FlashlightKey_TogglesLight()
         {
             Assert.IsFalse(_light.enabled, "Фонарик должен стартовать выключенным");

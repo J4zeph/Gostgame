@@ -292,7 +292,8 @@ namespace Game.Gameplay.Player
 
         private void OnCaptureCursor(InputAction.CallbackContext _)
         {
-            if (!IsMenuOpen)
+            // Без своего игрока на экране меню подключения - клик должен попадать в его кнопки.
+            if (!IsMenuOpen && LocalPlayer.Current != null)
             {
                 SetCursorCaptured(true);
             }

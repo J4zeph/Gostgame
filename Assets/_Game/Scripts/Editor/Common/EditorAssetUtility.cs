@@ -41,6 +41,32 @@ namespace Game.Editor.Common
             return asset;
         }
 
+        private const string LitShaderName = "Universal Render Pipeline/Lit";
+        private const string BaseColorProperty = "_BaseColor";
+
+        /// <summary>Создаёт (если нет) материал URP Lit по пути и задаёт ему цвет.</summary>
+        public static Material CreateOrUpdateLitMaterial(string path, Color color)
+        {
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+            {
+                var shader = Shader.Find(LitShaderName);
+                if (shader == null)
+                {
+                    throw new System.InvalidOperationException($"Шейдер {LitShaderName} не найден - проект должен быть на URP.");
+                }
+
+                EnsureFolder(Path.GetDirectoryName(path).Replace('\\', '/'));
+                material = new Material(shader);
+                AssetDatabase.CreateAsset(material, path);
+            }
+
+            material.SetColor(BaseColorProperty, color);
+            EditorUtility.SetDirty(material);
+            AssetDatabase.SaveAssets();
+            return material;
+        }
+
         /// <summary>Записывает ссылку в сериализованное поле (в том числе приватное с [SerializeField]).</summary>
         public static void SetReference(Object target, string fieldName, Object value)
         {
@@ -52,6 +78,25 @@ namespace Game.Editor.Common
             }
 
             property.objectReferenceValue = value;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        /// <summary>Записывает массив ссылок в сериализованное поле-массив.</summary>
+        public static void SetReferences(Object target, string fieldName, Object[] values)
+        {
+            var serialized = new SerializedObject(target);
+            var property = serialized.FindProperty(fieldName);
+            if (property == null || !property.isArray)
+            {
+                throw new System.InvalidOperationException($"{target.GetType().Name} не имеет сериализованного поля-массива {fieldName}");
+            }
+
+            property.arraySize = values.Length;
+            for (var i = 0; i < values.Length; i++)
+            {
+                property.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
+            }
+
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
     }
