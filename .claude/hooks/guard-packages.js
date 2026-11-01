@@ -1,13 +1,21 @@
 // PreToolUse-хук: защита файлов пакетов Unity (Packages/manifest.json, Packages/packages-lock.json).
-// - Shell-команды (Bash/PowerShell), упоминающие эти файлы: запрет.
+// - Shell-команды (Bash/PowerShell), обращающиеся к этим файлам: запрет.
 // - Edit/Write/MultiEdit этих файлов: вопрос пользователю со списком изменений пакетов.
 // Причину изменения агент пишет в чате перед запросом (CLAUDE.md, скилл package-policy).
 const fs = require('fs');
 const path = require('path');
 
 const PACKAGE_FILE = /(^|[\\/])Packages[\\/]+(manifest|packages-lock)\.json$/i;
-const PACKAGE_MENTION = /(manifest|packages-lock)\.json/i;
+const PACKAGE_PATH = /Packages[\\/]+(manifest|packages-lock)\.json/i;
+const PACKAGE_DIR = /(^|[\s"'`=;&|(])Packages([\\/\s"'`;&|)]|$)/;
+const PACKAGE_NAME = /(manifest|packages-lock)\.json/i;
 const DEPENDENCY = /"([a-z0-9][\w.-]*\.[\w.-]+)"\s*:\s*"([^"]+)"/gi;
+
+// Путь к файлу пакетов, либо папка Packages и имя файла в одной команде (cd Packages && ...).
+// Простое упоминание имени файла в тексте (сообщение коммита, отчёт) не блокируется.
+function touchesPackageFiles(command) {
+  return PACKAGE_PATH.test(command) || (PACKAGE_DIR.test(command) && PACKAGE_NAME.test(command));
+}
 
 function respond(decision, reason) {
   process.stdout.write(JSON.stringify({
@@ -48,7 +56,7 @@ process.stdin.on('end', () => {
   const ti = input.tool_input || {};
 
   if (tool === 'Bash' || tool === 'PowerShell') {
-    if (PACKAGE_MENTION.test(ti.command || '')) {
+    if (touchesPackageFiles(ti.command || '')) {
       respond('deny',
         'Shell-команды не должны трогать файлы пакетов Unity (manifest.json / packages-lock.json). ' +
         'Читать - инструментом Read. Менять - только инструментом Edit и только с согласия пользователя: ' +
