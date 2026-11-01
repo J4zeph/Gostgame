@@ -32,6 +32,17 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void BindingDisplay_IsEnglishKeyName_RegardlessOfLayout()
+        {
+            Assert.AreEqual("E", _input.GetBindingDisplay(GameInput.InteractId));
+            Assert.AreEqual("W", _input.GetBindingDisplay(GameInput.MoveForwardId));
+            Assert.AreEqual("F", _input.GetBindingDisplay(GameInput.FlashlightId));
+
+            _input.OverrideBinding(GameInput.InteractId, "<Mouse>/rightButton");
+            Assert.AreEqual("Right Button", _input.GetBindingDisplay(GameInput.InteractId));
+        }
+
+        [Test]
         public void OverrideBinding_ChangesDisplay_AndResetRestoresIt()
         {
             var original = _input.GetBindingDisplay(GameInput.InteractId);

@@ -6,7 +6,8 @@
         "UnityEditor.TestRunner",
         "Game.Core",
         "Game.Gameplay",
-        "Game.Network"
+        "Game.Network",
+        "Unity.Netcode.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

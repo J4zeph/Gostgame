@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Core.Session;
 using Game.Gameplay.Player;
 using Game.Gameplay.Settings;
 using UnityEngine;
@@ -34,6 +35,7 @@ namespace Game.UI.Settings
         private Toggle _invertY;
         private Slider _fieldOfView;
         private Label _hint;
+        private Button _leaveButton;
 
         private void Awake()
         {
@@ -92,6 +94,9 @@ namespace Game.UI.Settings
                 RefreshControls();
                 RefreshBindings();
                 _hint.style.display = DisplayStyle.None;
+                var session = SessionRegistry.Current;
+                var inSession = session != null && (session.State == SessionState.Host || session.State == SessionState.Client);
+                _leaveButton.style.display = inSession ? DisplayStyle.Flex : DisplayStyle.None;
             }
         }
 
@@ -155,6 +160,8 @@ namespace Game.UI.Settings
             buttons.AddToClassList(ButtonsClass);
             buttons.Add(new Button(ResetBindings) { text = "Сбросить клавиши" });
             buttons.Add(new Button(_manager.Settings.ResetControls) { text = "Сбросить мышь и камеру" });
+            _leaveButton = new Button(LeaveSession) { text = "Отключиться" };
+            buttons.Add(_leaveButton);
             buttons.Add(new Button(() => SetOpen(false)) { text = "Закрыть" });
             panel.Add(buttons);
 
@@ -184,6 +191,16 @@ namespace Game.UI.Settings
                 button.text = "...";
                 button.AddToClassList(BindingWaitingClass);
                 _hint.style.display = DisplayStyle.Flex;
+            }
+        }
+
+        private void LeaveSession()
+        {
+            SetOpen(false);
+            var session = SessionRegistry.Current;
+            if (session != null)
+            {
+                session.Leave();
             }
         }
 

@@ -131,14 +131,25 @@ namespace Game.Gameplay.Player
                 _gameplay.Enable();
             }
 
-            SetCursorCaptured(!open);
+            // Курсор захватываем, только если есть свой игрок: без него (меню подключения) курсор нужен.
+            SetCursorCaptured(!open && LocalPlayer.Current != null);
             MenuStateChanged?.Invoke(open);
         }
 
+        /// <summary>
+        /// Подпись клавиши по-английски (E, Left Shift, Left Button) - по физической клавише,
+        /// без перевода на текущую раскладку (иначе с русской раскладкой E показывается как «У»).
+        /// </summary>
         public string GetBindingDisplay(string id)
         {
             var entry = Find(id);
-            return entry == null ? string.Empty : entry.Action.GetBindingDisplayString(entry.BindingIndex);
+            if (entry == null)
+            {
+                return string.Empty;
+            }
+
+            var path = entry.Action.bindings[entry.BindingIndex].effectivePath;
+            return InputControlPath.ToHumanReadableString(path, InputControlPath.HumanReadableStringOptions.OmitDevice);
         }
 
         /// <summary>

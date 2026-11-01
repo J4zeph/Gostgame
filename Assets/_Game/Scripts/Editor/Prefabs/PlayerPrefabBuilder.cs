@@ -1,8 +1,13 @@
 using System;
 using Game.Editor.Common;
+using Game.Editor.Networking;
 using Game.Gameplay.Equipment;
 using Game.Gameplay.Interaction;
 using Game.Gameplay.Player;
+using Game.Network.Equipment;
+using Game.Network.Player;
+using Unity.Netcode;
+using Unity.Netcode.Components;
 using UnityEditor;
 using UnityEngine;
 using PlayerSettings = Game.Gameplay.Player.PlayerSettings;
@@ -49,6 +54,13 @@ namespace Game.Editor.Prefabs
             var root = new GameObject("Player");
             try
             {
+                // Сеть: NetworkObject первым - NetworkBehaviour'ам он нужен на корне.
+                root.AddComponent<NetworkObject>();
+                var bodySync = root.AddComponent<NetworkTransform>();
+                ConfigureOwnerTransform(bodySync);
+                bodySync.SyncRotAngleX = false;
+                bodySync.SyncRotAngleZ = false;
+
                 var controller = root.AddComponent<CharacterController>();
                 controller.height = playerSettings.Height;
                 controller.radius = playerSettings.Radius;
@@ -57,10 +69,25 @@ namespace Game.Editor.Prefabs
                 var pivot = new GameObject(CameraPivotName).transform;
                 pivot.SetParent(root.transform, false);
                 pivot.localPosition = new Vector3(0f, playerSettings.EyeHeight, 0f);
+
+                // Наклон головы владельца виден другим (фонарик светит туда, куда он смотрит).
+                var headSync = pivot.gameObject.AddComponent<NetworkTransform>();
+                ConfigureOwnerTransform(headSync);
+                headSync.InLocalSpace = true;
+                headSync.SyncPositionX = false;
+                headSync.SyncPositionY = false;
+                headSync.SyncPositionZ = false;
+                headSync.SyncRotAngleY = false;
+                headSync.SyncRotAngleZ = false;
+
+                // Камера, слух, угол обзора и ввод выключены: их включает NetworkPlayer только у своего игрока.
                 var camera = pivot.gameObject.AddComponent<Camera>();
                 camera.nearClipPlane = CameraNearClip;
-                pivot.gameObject.AddComponent<AudioListener>();
-                pivot.gameObject.AddComponent<PlayerCameraFov>();
+                camera.enabled = false;
+                var listener = pivot.gameObject.AddComponent<AudioListener>();
+                listener.enabled = false;
+                var fieldOfView = pivot.gameObject.AddComponent<PlayerCameraFov>();
+                fieldOfView.enabled = false;
                 pivot.gameObject.tag = MainCameraTag;
 
                 var flashlightTransform = new GameObject(FlashlightName).transform;
@@ -73,9 +100,9 @@ namespace Game.Editor.Prefabs
                 // Сначала контроллер: PlayerInputReader требует его и иначе добавил бы второй.
                 var player = root.AddComponent<PlayerController>();
                 var reader = root.AddComponent<PlayerInputReader>();
+                reader.enabled = false;
                 EditorAssetUtility.SetReference(player, "_settings", playerSettings);
                 EditorAssetUtility.SetReference(player, "_cameraPivot", pivot);
-                EditorAssetUtility.SetReference(player, "_inputSourceBehaviour", reader);
 
                 var interactor = root.AddComponent<PlayerInteractor>();
                 EditorAssetUtility.SetReference(interactor, "_player", player);
@@ -85,19 +112,41 @@ namespace Game.Editor.Prefabs
                 EditorAssetUtility.SetReference(flashlight, "_settings", flashlightSettings);
                 EditorAssetUtility.SetReference(flashlight, "_owner", player);
 
-                var prefab = PrefabUtility.SaveAsPrefabAsset(root, PrefabPath, out var success);
+                var networkPlayer = root.AddComponent<NetworkPlayer>();
+                EditorAssetUtility.SetReference(networkPlayer, "_player", player);
+                EditorAssetUtility.SetReference(networkPlayer, "_input", reader);
+                EditorAssetUtility.SetReference(networkPlayer, "_camera", camera);
+                EditorAssetUtility.SetReference(networkPlayer, "_listener", listener);
+                EditorAssetUtility.SetReference(networkPlayer, "_fieldOfView", fieldOfView);
+
+                var networkFlashlight = root.AddComponent<NetworkFlashlight>();
+                EditorAssetUtility.SetReference(networkFlashlight, "_flashlight", flashlight);
+
+                PrefabUtility.SaveAsPrefabAsset(root, PrefabPath, out var success);
                 if (!success)
                 {
                     throw new InvalidOperationException($"Не удалось сохранить префаб {PrefabPath}");
                 }
 
+                // Хеш сетевого объекта считается только у сохранённого префаба.
+                NetworkObjectHashUtility.RefreshPrefab(PrefabPath);
+
                 Debug.Log($"[PlayerPrefabBuilder] Префаб сохранён: {PrefabPath}");
-                return prefab;
+                return AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
             }
             finally
             {
                 UnityEngine.Object.DestroyImmediate(root);
             }
+        }
+
+        // Перемещение игрока двигает владелец (решение пользователя, CLAUDE.md). Масштаб не синхронизируем.
+        private static void ConfigureOwnerTransform(NetworkTransform sync)
+        {
+            sync.AuthorityMode = NetworkTransform.AuthorityModes.Owner;
+            sync.SyncScaleX = false;
+            sync.SyncScaleY = false;
+            sync.SyncScaleZ = false;
         }
     }
 }

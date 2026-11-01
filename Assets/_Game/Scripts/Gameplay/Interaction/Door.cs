@@ -19,6 +19,15 @@ namespace Game.Gameplay.Interaction
         public event Action<bool> StateChanged;
         public event Action PromptChanged;
 
+        /// <summary>
+        /// Взаимодействие, когда дверь не обрабатывает его сама (HandleInteractLocally = false):
+        /// сетевой слой пересылает запрос хосту, а результат возвращает через SetOpen.
+        /// </summary>
+        public event Action<GameObject> InteractRequested;
+
+        /// <summary>true - Interact сразу переключает дверь (одиночная игра, тесты); false - только InteractRequested.</summary>
+        public bool HandleInteractLocally { get; set; } = true;
+
         public string Prompt => _model == null ? string.Empty : _model.IsOpen ? _settings.ClosePrompt : _settings.OpenPrompt;
         public bool IsOpen => _model.IsOpen;
         public float Angle => _model.Angle;
@@ -55,7 +64,14 @@ namespace Game.Gameplay.Interaction
 
         public void Interact(GameObject interactor)
         {
-            _model.Toggle();
+            if (HandleInteractLocally)
+            {
+                _model.Toggle();
+            }
+            else
+            {
+                InteractRequested?.Invoke(interactor);
+            }
         }
 
         public void SetOpen(bool open)

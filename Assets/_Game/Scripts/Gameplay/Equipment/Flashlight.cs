@@ -1,3 +1,4 @@
+using System;
 using Game.Core.Equipment;
 using Game.Gameplay.Player;
 using UnityEngine;
@@ -17,6 +18,12 @@ namespace Game.Gameplay.Equipment
         private FlashlightModel _model;
 
         public bool IsOn => _model.IsOn;
+
+        /// <summary>Запрос переключения, когда фонарик не переключается сам (HandleToggleLocally = false).</summary>
+        public event Action ToggleRequested;
+
+        /// <summary>true - Toggle сразу переключает (одиночная игра, тесты); false - только ToggleRequested, состояние приходит через SetOn.</summary>
+        public bool HandleToggleLocally { get; set; } = true;
 
         /// <summary>Для сборки из кода (тесты, editor-скрипты). Вызывать до активации объекта.</summary>
         public void Init(FlashlightSettings settings, PlayerController owner)
@@ -75,7 +82,14 @@ namespace Game.Gameplay.Equipment
 
         public void Toggle()
         {
-            _model.Toggle();
+            if (HandleToggleLocally)
+            {
+                _model.Toggle();
+            }
+            else
+            {
+                ToggleRequested?.Invoke();
+            }
         }
 
         public void SetOn(bool on)

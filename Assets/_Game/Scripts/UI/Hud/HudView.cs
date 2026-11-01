@@ -29,6 +29,8 @@ namespace Game.UI.Hud
         private VisualElement _prompt;
         private Label _key;
         private Label _action;
+        private bool _hasPlayer;
+        private bool _menuOpen;
 
         private void Awake()
         {
@@ -97,7 +99,9 @@ namespace Game.UI.Hud
 
         private void OnLocalPlayerChanged(PlayerController player)
         {
-            Attach(player != null ? player.GetComponent<PlayerInteractor>() : null);
+            _hasPlayer = player != null;
+            Attach(_hasPlayer ? player.GetComponent<PlayerInteractor>() : null);
+            UpdateVisibility();
         }
 
         private void Attach(PlayerInteractor interactor)
@@ -141,7 +145,15 @@ namespace Game.UI.Hud
 
         private void OnMenuStateChanged(bool menuOpen)
         {
-            _document.rootVisualElement.style.display = menuOpen ? DisplayStyle.None : DisplayStyle.Flex;
+            _menuOpen = menuOpen;
+            UpdateVisibility();
+        }
+
+        // Прицел нужен только когда есть свой игрок и не открыто меню.
+        private void UpdateVisibility()
+        {
+            var visible = _hasPlayer && !_menuOpen;
+            _document.rootVisualElement.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
         }
     }
 }

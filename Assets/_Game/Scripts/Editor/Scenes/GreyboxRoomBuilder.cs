@@ -1,12 +1,19 @@
 using System;
 using System.Linq;
 using Game.Editor.Common;
+using Game.Editor.Networking;
 using Game.Editor.Prefabs;
 using Game.Editor.UiAssets;
 using Game.Gameplay.Interaction;
+using Game.Gameplay.Player;
 using Game.Gameplay.Settings;
+using Game.Network.Interaction;
+using Game.Network.Session;
 using Game.UI.Hud;
+using Game.UI.Session;
 using Game.UI.Settings;
+using Unity.Netcode;
+using Unity.Netcode.Transports.UTP;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -86,32 +93,41 @@ namespace Game.Editor.Scenes
             CreateOrUpdatePalette();
             UiAssetsBuilder.Build();
             PlayerPrefabBuilder.Build();
+            NetworkAssetsBuilder.Build();
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             BuildSystemsAndUi();
 
             // Ассеты загружаем после NewScene: смена сцены выгружает неиспользуемые ассеты,
             // и ссылки, полученные раньше, становятся пустыми.
             var palette = LoadPalette();
-            var playerPrefab = LoadRequired<GameObject>(PlayerPrefabBuilder.PrefabPath);
             var doorSettings = LoadRequired<DoorSettings>(PlayerPrefabBuilder.DoorSettingsPath);
+            var networkSettings = LoadRequired<NetworkSettings>(NetworkAssetsBuilder.SettingsPath);
 
             var root = new GameObject(RootName);
             BuildLayout(root.transform, palette);
 
-            var door = root.transform.Find($"{LevelName}/{DoorName}").gameObject.AddComponent<Door>();
+            // Дверь - сетевой объект сцены: состояние решает хост.
+            var doorObject = root.transform.Find($"{LevelName}/{DoorName}").gameObject;
+            doorObject.AddComponent<NetworkObject>();
+            var door = doorObject.AddComponent<Door>();
             EditorAssetUtility.SetReference(door, "_settings", doorSettings);
+            var networkDoor = doorObject.AddComponent<NetworkDoor>();
+            EditorAssetUtility.SetReference(networkDoor, "_door", door);
+            EditorAssetUtility.SetReference(networkDoor, "_settings", networkSettings);
 
-            var spawn = root.transform.Find($"{SpawnPointsName}/{SpawnPointPrefix}1");
-            var player = (GameObject)PrefabUtility.InstantiatePrefab(playerPrefab, scene);
-            player.transform.SetPositionAndRotation(spawn.position, spawn.rotation);
+            var spawnPoints = root.transform.Find(SpawnPointsName).gameObject.AddComponent<SpawnPointGroup>();
+            BuildMenuCamera(root.transform);
+            BuildNetworkManager(spawnPoints, networkSettings);
 
-            if (!EditorSceneManager.SaveScene(scene, ScenePath))
-            {
-                throw new InvalidOperationException($"Не удалось сохранить сцену {ScenePath}");
-            }
-
+            SaveSceneOrThrow(scene);
             AddSceneToBuildSettings(ScenePath);
-            Debug.Log($"[GreyboxRoomBuilder] Сцена сохранена: {ScenePath}");
+
+            // Хеши сетевых объектов сцены считаются только у сохранённой сцены из Build Settings - отсюда второе сохранение.
+            var networkObjects = NetworkObjectHashUtility.RefreshScene(scene);
+            EditorSceneManager.MarkSceneDirty(scene);
+            SaveSceneOrThrow(scene);
+
+            Debug.Log($"[GreyboxRoomBuilder] Сцена сохранена: {ScenePath}, сетевых объектов: {networkObjects}");
         }
 
         /// <summary>
@@ -133,8 +149,56 @@ namespace Game.Editor.Scenes
             BuildLighting(root);
         }
 
+        private static void SaveSceneOrThrow(UnityEngine.SceneManagement.Scene scene)
+        {
+            if (!EditorSceneManager.SaveScene(scene, ScenePath))
+            {
+                throw new InvalidOperationException($"Не удалось сохранить сцену {ScenePath}");
+            }
+        }
+
         private const int HudSortingOrder = 0;
+        private const int ConnectionMenuSortingOrder = 5;
         private const int MenuSortingOrder = 10;
+        private const float MenuCameraHeight = 1.65f;
+        private const string MainCameraTag = "MainCamera";
+
+        /// <summary>Камера сцены у точек появления, смотрит на дверь. Работает, пока нет своего игрока.</summary>
+        private static void BuildMenuCamera(Transform root)
+        {
+            var cameraTransform = CreateChild("MenuCamera", root);
+            cameraTransform.localPosition = new Vector3(0f, MenuCameraHeight, -RoomDepth / 2f + SpawnRowOffsetFromBackWall);
+            cameraTransform.localRotation = Quaternion.identity;
+            cameraTransform.gameObject.AddComponent<Camera>();
+            cameraTransform.gameObject.AddComponent<AudioListener>();
+            cameraTransform.gameObject.AddComponent<FallbackCamera>();
+            cameraTransform.gameObject.tag = MainCameraTag;
+        }
+
+        /// <summary>
+        /// NetworkManager + UnityTransport + наш сервис сессии. Игрок - из нашего списка префабов.
+        /// Управление сценами NGO пока выключено: все играют в одной сцене, загруженной до подключения.
+        /// </summary>
+        private static void BuildNetworkManager(SpawnPointGroup spawnPoints, NetworkSettings settings)
+        {
+            var playerPrefab = LoadRequired<GameObject>(PlayerPrefabBuilder.PrefabPath);
+            var prefabsList = LoadRequired<NetworkPrefabsList>(NetworkAssetsBuilder.PrefabsListPath);
+
+            var go = new GameObject("NetworkManager");
+            var manager = go.AddComponent<NetworkManager>();
+            var transport = go.AddComponent<UnityTransport>();
+            manager.NetworkConfig.NetworkTransport = transport;
+            manager.NetworkConfig.PlayerPrefab = playerPrefab;
+            manager.NetworkConfig.Prefabs.NetworkPrefabsLists.Clear();
+            manager.NetworkConfig.Prefabs.NetworkPrefabsLists.Add(prefabsList);
+            manager.NetworkConfig.ConnectionApproval = true;
+            manager.NetworkConfig.EnableSceneManagement = false;
+            EditorUtility.SetDirty(manager);
+
+            var session = go.AddComponent<NetworkSessionService>();
+            EditorAssetUtility.SetReference(session, "_settings", settings);
+            EditorAssetUtility.SetReference(session, "_spawnPoints", spawnPoints);
+        }
 
         /// <summary>Менеджер настроек и ввода, HUD и меню настроек. Вызывать после NewScene (ассеты грузятся здесь).</summary>
         private static void BuildSystemsAndUi()
@@ -152,6 +216,9 @@ namespace Game.Editor.Scenes
 
             var menu = CreateUiDocument("SettingsMenu", panelSettings, MenuSortingOrder).AddComponent<SettingsMenuView>();
             EditorAssetUtility.SetReference(menu, "_styleSheet", menuStyle);
+
+            var connection = CreateUiDocument("ConnectionMenu", panelSettings, ConnectionMenuSortingOrder).AddComponent<ConnectionMenuView>();
+            EditorAssetUtility.SetReference(connection, "_styleSheet", menuStyle);
         }
 
         private static GameObject CreateUiDocument(string name, PanelSettings panelSettings, int sortingOrder)
