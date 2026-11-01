@@ -44,5 +44,7 @@ Thumbs.db
 desktop.ini
 
 # Локальные настройки Claude Code (прокси, личные разрешения)
-.claude/settings.json
 .claude/settings.local.json
+
+# Локальные отчёты агента (work-report)
+/Reports/

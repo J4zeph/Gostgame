@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "ask": [
+      "Edit(Packages/manifest.json)",
+      "Edit(Packages/packages-lock.json)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-packages.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

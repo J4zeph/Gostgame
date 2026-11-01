@@ -1,0 +1,153 @@
+<title>Отчёт: НАЗВАНИЕ ЗАДАЧИ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap&subset=cyrillic">
+<style>
+/* Журнал работ: одна узкая колонка, сводка сверху, детали ниже. Шрифт данных - моно. */
+:root {
+  --bg: #f2f3ef;
+  --surface: #ffffff;
+  --fg: #1b1f23;
+  --muted: #5b636b;
+  --line: #d8dbd4;
+  --accent: #34558a;
+  --ok: #2b7a4b;
+  --ok-bg: #e3f1e8;
+  --fail: #b03636;
+  --fail-bg: #f8e4e2;
+  --warn: #9c5d0a;
+  --warn-bg: #f7ecd9;
+  --font-body: "Onest", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", Consolas, "Courier New", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111418; --surface: #191e24; --fg: #e4e7ea; --muted: #97a0a9; --line: #2a3139;
+    --accent: #8fb0e6; --ok: #6cc98f; --ok-bg: #16291e; --fail: #ef7f7f; --fail-bg: #331a1a;
+    --warn: #e5a54b; --warn-bg: #2f2414; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111418; --surface: #191e24; --fg: #e4e7ea; --muted: #97a0a9; --line: #2a3139;
+  --accent: #8fb0e6; --ok: #6cc98f; --ok-bg: #16291e; --fail: #ef7f7f; --fail-bg: #331a1a;
+  --warn: #e5a54b; --warn-bg: #2f2414; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body);
+  font-size: 16px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 48px;
+}
+.page { max-width: 760px; margin: 0 auto; display: grid; gap: 28px; }
+header { display: grid; gap: 10px; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 14px; }
+h1 { font-size: clamp(24px, 4vw, 32px); line-height: 1.2; margin: 0; text-wrap: balance; font-weight: 700; }
+.verdict { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 12px; }
+.verdict p { margin: 0; flex: 1 1 320px; min-width: 0; }
+.status { font-family: var(--font-mono); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 10px; border-radius: 4px; border: 1px solid currentColor; white-space: nowrap; }
+.status--done { color: var(--ok); background: var(--ok-bg); }
+.status--partial { color: var(--warn); background: var(--warn-bg); }
+.status--blocked { color: var(--fail); background: var(--fail-bg); }
+.checks { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.checks table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums; }
+.checks th, .checks td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.checks th { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 400; }
+.checks tr:last-child td { border-bottom: 0; }
+.checks td.num { text-align: right; }
+.checks th.num { text-align: right; }
+.mark { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+.row--ok .mark { background: var(--ok); }
+.row--fail .mark { background: var(--fail); }
+.row--fail td { color: var(--fail); }
+.checks .result { font-weight: 600; }
+.checks-wrap { overflow-x: auto; }
+section { display: grid; gap: 10px; }
+h2 { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0; font-weight: 500; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+ul.items, ol.items { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.items li { display: grid; gap: 3px; min-width: 0; }
+.items .what { font-weight: 500; }
+.items .why { color: var(--muted); font-size: 15px; }
+ol.items { counter-reset: step; }
+ol.items li { grid-template-columns: 28px 1fr; column-gap: 8px; }
+ol.items li::before { counter-increment: step; content: counter(step); font-family: var(--font-mono); color: var(--accent); font-weight: 600; grid-row: span 2; }
+ol.items li > * { grid-column: 2; }
+.proof { font-family: var(--font-mono); font-size: 13px; color: var(--accent); overflow-wrap: anywhere; }
+code { font-family: var(--font-mono); font-size: 0.88em; overflow-wrap: anywhere; }
+.miss li .what::before { content: "Не сделано: "; color: var(--fail); font-weight: 600; }
+.ask { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 8px; padding: 14px 16px; }
+.ask h2 { color: var(--warn); border-bottom-color: var(--warn); }
+.ask .why { color: var(--fg); }
+dl.changes { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; }
+dl.changes dt { color: var(--muted); font-size: 14px; }
+dl.changes dd { margin: 0; min-width: 0; }
+@media (max-width: 480px) { dl.changes { grid-template-columns: 1fr; } dl.changes dd { margin-bottom: 6px; } }
+footer { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+</style>
+
+<div class="page">
+  <header>
+    <!-- Шапка: проект, дата/время, коммит -->
+    <div class="eyebrow"><span>Gostgame · журнал работ</span><span>ГГГГ-ММ-ДД ЧЧ:ММ</span></div>
+    <h1>НАЗВАНИЕ ЗАДАЧИ</h1>
+    <!-- Итог: status--done | status--partial | status--blocked -->
+    <div class="verdict">
+      <span class="status status--done">Готово</span>
+      <p>Одна строка итога.</p>
+    </div>
+  </header>
+
+  <!-- Проверка: цифры из Logs\verify\summary.txt; строки row--ok | row--fail -->
+  <div class="checks"><div class="checks-wrap"><table>
+    <thead><tr><th>Шаг</th><th class="num">Всего</th><th class="num">Прошло</th><th class="num">Упало</th><th>Итог</th></tr></thead>
+    <tbody>
+      <tr class="row--ok"><td><span class="mark"></span>compile</td><td class="num">—</td><td class="num">—</td><td class="num">0 ошибок</td><td>OK</td></tr>
+      <tr class="row--ok"><td><span class="mark"></span>editmode</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td>OK</td></tr>
+      <tr class="row--ok"><td><span class="mark"></span>playmode</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td>OK</td></tr>
+      <tr><td class="result" colspan="4">RESULT</td><td class="result">GREEN</td></tr>
+    </tbody>
+  </table></div></div>
+
+  <!-- Нужно от тебя: убрать блок целиком, если ничего -->
+  <section class="ask">
+    <h2>Нужно от тебя</h2>
+    <ul class="items">
+      <li><span class="what">Вопрос, на который можно ответить одним словом</span><span class="why">Контекст в одну строку</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Получилось</h2>
+    <ul class="items">
+      <li><span class="what">Что сделано</span><span class="why">Зачем / как проверено</span><span class="proof">путь/к/файлу · команда · коммит</span></li>
+    </ul>
+  </section>
+
+  <!-- Если всё сделано: один li "Всё из запроса выполнено" без класса miss у ul -->
+  <section>
+    <h2>Не получилось / не сделано</h2>
+    <ul class="items miss">
+      <li><span class="what">Что</span><span class="why">Почему и что нужно, чтобы доделать</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Изменения</h2>
+    <dl class="changes">
+      <dt>Файлы</dt><dd><code>путь</code>, <code>путь</code></dd>
+      <dt>Пакеты</dt><dd>нет</dd>
+      <dt>Git</dt><dd><code>hash</code> — запушено в origin/main</dd>
+    </dl>
+  </section>
+
+  <section>
+    <h2>Дальше</h2>
+    <ol class="items">
+      <li><span class="what">Рекомендуемый следующий шаг</span><span class="why">Почему он первый</span></li>
+    </ol>
+  </section>
+
+  <footer>Сгенерировано по скиллу work-report · исходник: Reports/ИМЯ_ФАЙЛА.html</footer>
+</div>
