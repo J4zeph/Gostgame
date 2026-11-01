@@ -6,7 +6,8 @@
         "UnityEditor.TestRunner",
         "Game.Core",
         "Game.Gameplay",
-        "Game.Editor"
+        "Game.Editor",
+        "Game.UI"
     ],
     "includePlatforms": [
         "Editor"

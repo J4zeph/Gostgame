@@ -2,10 +2,15 @@ using System;
 using System.Linq;
 using Game.Editor.Common;
 using Game.Editor.Prefabs;
+using Game.Editor.UiAssets;
 using Game.Gameplay.Interaction;
+using Game.Gameplay.Settings;
+using Game.UI.Hud;
+using Game.UI.Settings;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace Game.Editor.Scenes
 {
@@ -79,8 +84,10 @@ namespace Game.Editor.Scenes
         public static void BuildScene()
         {
             CreateOrUpdatePalette();
+            UiAssetsBuilder.Build();
             PlayerPrefabBuilder.Build();
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            BuildSystemsAndUi();
 
             // Ассеты загружаем после NewScene: смена сцены выгружает неиспользуемые ассеты,
             // и ссылки, полученные раньше, становятся пустыми.
@@ -124,6 +131,36 @@ namespace Game.Editor.Scenes
             BuildDoor(level, palette);
             BuildSpawnPoints(root);
             BuildLighting(root);
+        }
+
+        private const int HudSortingOrder = 0;
+        private const int MenuSortingOrder = 10;
+
+        /// <summary>Менеджер настроек и ввода, HUD и меню настроек. Вызывать после NewScene (ассеты грузятся здесь).</summary>
+        private static void BuildSystemsAndUi()
+        {
+            var config = LoadRequired<ControlSettingsConfig>(UiAssetsBuilder.ControlSettingsConfigPath);
+            var panelSettings = LoadRequired<PanelSettings>(UiAssetsBuilder.PanelSettingsPath);
+            var hudStyle = LoadRequired<StyleSheet>(UiAssetsBuilder.HudStylePath);
+            var menuStyle = LoadRequired<StyleSheet>(UiAssetsBuilder.SettingsMenuStylePath);
+
+            var manager = new GameObject("SettingsManager").AddComponent<SettingsManager>();
+            EditorAssetUtility.SetReference(manager, "_config", config);
+
+            var hud = CreateUiDocument("HUD", panelSettings, HudSortingOrder).AddComponent<HudView>();
+            EditorAssetUtility.SetReference(hud, "_styleSheet", hudStyle);
+
+            var menu = CreateUiDocument("SettingsMenu", panelSettings, MenuSortingOrder).AddComponent<SettingsMenuView>();
+            EditorAssetUtility.SetReference(menu, "_styleSheet", menuStyle);
+        }
+
+        private static GameObject CreateUiDocument(string name, PanelSettings panelSettings, int sortingOrder)
+        {
+            var go = new GameObject(name);
+            var document = go.AddComponent<UIDocument>();
+            document.panelSettings = panelSettings;
+            document.sortingOrder = sortingOrder;
+            return go;
         }
 
         private static void BuildRoom(Transform level, GreyboxPalette palette)

@@ -1,0 +1,99 @@
+/* Меню настроек поверх игры: затемнение и панель по центру. */
+
+.menu-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(6, 8, 12, 0.75);
+    align-items: center;
+    justify-content: center;
+}
+
+.menu-panel {
+    width: 620px;
+    max-width: 94%;
+    max-height: 92%;
+    padding: 24px 30px;
+    background-color: rgb(22, 26, 32);
+    border-width: 1px;
+    border-radius: 8px;
+    border-color: rgb(52, 60, 70);
+}
+
+.menu-title {
+    font-size: 28px;
+    -unity-font-style: bold;
+    color: rgb(232, 235, 238);
+    margin-bottom: 12px;
+}
+
+.menu-section {
+    font-size: 13px;
+    color: rgb(150, 160, 170);
+    margin-top: 16px;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom-width: 1px;
+    border-color: rgb(52, 60, 70);
+    -unity-font-style: bold;
+}
+
+.menu-panel .unity-label {
+    color: rgb(220, 224, 228);
+    font-size: 15px;
+}
+
+.menu-panel .unity-base-field {
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+.menu-panel .unity-base-field__label {
+    min-width: 230px;
+}
+
+.menu-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 3px;
+    margin-bottom: 3px;
+}
+
+.menu-binding {
+    min-width: 160px;
+    height: 30px;
+    font-size: 15px;
+}
+
+.menu-binding--waiting {
+    color: rgb(229, 165, 75);
+}
+
+.menu-hint {
+    color: rgb(229, 165, 75);
+    margin-top: 8px;
+    font-size: 14px;
+}
+
+.menu-buttons {
+    flex-direction: row;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    margin-top: 20px;
+}
+
+.menu-buttons Button {
+    height: 32px;
+    padding: 0 14px;
+    margin-left: 8px;
+    font-size: 14px;
+}
+
+.menu-footer {
+    color: rgb(120, 128, 138);
+    font-size: 12px;
+    margin-top: 10px;
+}

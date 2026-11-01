@@ -60,6 +60,7 @@ namespace Game.Editor.Prefabs
                 var camera = pivot.gameObject.AddComponent<Camera>();
                 camera.nearClipPlane = CameraNearClip;
                 pivot.gameObject.AddComponent<AudioListener>();
+                pivot.gameObject.AddComponent<PlayerCameraFov>();
                 pivot.gameObject.tag = MainCameraTag;
 
                 var flashlightTransform = new GameObject(FlashlightName).transform;
@@ -69,8 +70,9 @@ namespace Game.Editor.Prefabs
                 light.type = LightType.Spot;
                 light.shadows = LightShadows.Soft;
 
-                var reader = root.AddComponent<PlayerInputReader>();
+                // Сначала контроллер: PlayerInputReader требует его и иначе добавил бы второй.
                 var player = root.AddComponent<PlayerController>();
+                var reader = root.AddComponent<PlayerInputReader>();
                 EditorAssetUtility.SetReference(player, "_settings", playerSettings);
                 EditorAssetUtility.SetReference(player, "_cameraPivot", pivot);
                 EditorAssetUtility.SetReference(player, "_inputSourceBehaviour", reader);

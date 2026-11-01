@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace Game.Gameplay.Interaction
@@ -7,6 +8,12 @@ namespace Game.Gameplay.Interaction
     /// </summary>
     public interface IInteractable
     {
+        /// <summary>Что произойдёт при взаимодействии - подпись у значка («Открыть», «Включить»).</summary>
+        string Prompt { get; }
+
+        /// <summary>Подпись сменилась (дверь открыли - теперь «Закрыть»).</summary>
+        event Action PromptChanged;
+
         void Interact(GameObject interactor);
     }
 }

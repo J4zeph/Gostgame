@@ -16,7 +16,7 @@ Assets/
   _Game/                    <- весь наш код и контент, сторонние ассеты НЕ сюда
     Scripts/
       Core/                 <- чистая логика: правила, состояния, расчёты. Без MonoBehaviour где возможно
-      Gameplay/             <- Ghost/, Evidence/, Equipment/, Player/, Interaction/
+      Gameplay/             <- Ghost/, Evidence/, Equipment/, Player/, Interaction/, Settings/ (пользовательские настройки)
       Network/              <- NetworkBehaviour-адаптеры, RPC, синхронизация, Relay/Lobby
       UI/
       Audio/

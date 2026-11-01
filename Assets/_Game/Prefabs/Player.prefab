@@ -10,8 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 9008834130345561348}
   - component: {fileID: 2144697573298715477}
-  - component: {fileID: 4376727916190579175}
   - component: {fileID: 6174091280749041853}
+  - component: {fileID: 4376727916190579175}
   - component: {fileID: 657281534604734167}
   m_Layer: 0
   m_Name: Player
@@ -61,18 +61,6 @@ CharacterController:
   m_SkinWidth: 0.08
   m_MinMoveDistance: 0.001
   m_Center: {x: 0, y: 0.9, z: 0}
---- !u!114 &4376727916190579175
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1010524059126850051}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0d8408383c9dd9842a574f71d025ac1e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Player.PlayerInputReader
 --- !u!114 &6174091280749041853
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -88,6 +76,18 @@ MonoBehaviour:
   _settings: {fileID: 11400000, guid: ae363cd3d6e67c24ea3164aff722a8a6, type: 2}
   _cameraPivot: {fileID: 6893223566454162491}
   _inputSourceBehaviour: {fileID: 4376727916190579175}
+--- !u!114 &4376727916190579175
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1010524059126850051}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0d8408383c9dd9842a574f71d025ac1e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Player.PlayerInputReader
 --- !u!114 &657281534604734167
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -228,6 +228,7 @@ GameObject:
   - component: {fileID: 6893223566454162491}
   - component: {fileID: 4996927621282475834}
   - component: {fileID: 5217527883061284637}
+  - component: {fileID: 2011944187099904368}
   m_Layer: 0
   m_Name: CameraPivot
   m_TagString: MainCamera
@@ -310,3 +311,15 @@ AudioListener:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6935215080998313493}
   m_Enabled: 1
+--- !u!114 &2011944187099904368
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6935215080998313493}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2cec95b309c67764d89812f0fd022822, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Player.PlayerCameraFov

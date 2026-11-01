@@ -19,6 +19,7 @@ namespace Game.Tests.PlayMode
         private PlayerController _player;
         private PlayerSettings _playerSettings;
         private FakeInputSource _input;
+        private PlayerInteractor _interactor;
         private Light _light;
         private Flashlight _flashlight;
         private GameObject _doorObject;
@@ -54,7 +55,8 @@ namespace Game.Tests.PlayMode
             _input = new FakeInputSource();
             _player.SetInputSource(_input);
 
-            _playerObject.AddComponent<PlayerInteractor>().Init(_player, pivot);
+            _interactor = _playerObject.AddComponent<PlayerInteractor>();
+            _interactor.Init(_player, pivot);
 
             var lightObject = new GameObject("Flashlight");
             lightObject.transform.SetParent(pivot, false);
@@ -64,6 +66,8 @@ namespace Game.Tests.PlayMode
 
             _playerObject.transform.position = new Vector3(0f, 0.05f, 0f);
             _playerObject.SetActive(true);
+            // В игре локального игрока регистрирует PlayerInputReader; здесь ввод поддельный.
+            LocalPlayer.Set(_player);
 
             // Дверь перед игроком: петля у левого края, полотно вправо.
             _doorObject = new GameObject("TestDoor");
@@ -85,6 +89,7 @@ namespace Game.Tests.PlayMode
         [UnityTearDown]
         public IEnumerator TearDown()
         {
+            LocalPlayer.Clear(_player);
             Object.Destroy(_playerObject);
             Object.Destroy(_doorObject);
             Object.Destroy(_floor);
@@ -153,6 +158,49 @@ namespace Game.Tests.PlayMode
             yield return null;
 
             Assert.IsFalse(_door.IsOpen);
+        }
+
+        [UnityTest]
+        public IEnumerator LookingAtDoor_FocusesItWithOpenPrompt_ThenClosePromptAfterOpening()
+        {
+            yield return null;
+
+            Assert.AreSame(_door, _interactor.Focus, "Дверь перед игроком не в фокусе");
+            Assert.AreEqual(_doorSettings.OpenPrompt, _interactor.Focus.Prompt);
+
+            var events = 0;
+            _interactor.FocusChanged += _ => events++;
+            _input.PressInteract();
+            yield return null;
+
+            Assert.AreEqual(_doorSettings.ClosePrompt, _interactor.Focus.Prompt);
+            Assert.GreaterOrEqual(events, 1, "HUD не узнал о смене подписи");
+        }
+
+        [UnityTest]
+        public IEnumerator LookingAway_ClearsFocus()
+        {
+            yield return null;
+            Assert.IsNotNull(_interactor.Focus);
+
+            IInteractable reported = _door;
+            _interactor.FocusChanged += focus => reported = focus;
+            _input.Look = new Vector2(180f / _playerSettings.LookSensitivity, 0f);
+            yield return null;
+            _input.Look = Vector2.zero;
+            yield return null;
+
+            Assert.IsNull(_interactor.Focus);
+            Assert.IsNull(reported);
+        }
+
+        [UnityTest]
+        public IEnumerator RemotePlayer_DoesNotTrackFocus()
+        {
+            LocalPlayer.Clear(_player);
+            yield return null;
+
+            Assert.IsNull(_interactor.Focus, "Фокус (для HUD) нужен только локальному игроку");
         }
 
         [UnityTest]

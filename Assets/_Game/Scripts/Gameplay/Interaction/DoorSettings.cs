@@ -14,7 +14,13 @@ namespace Game.Gameplay.Interaction
         [SerializeField, Min(1f), Tooltip("Скорость поворота, градусов в секунду")]
         private float _speed = 180f;
 
+        [Header("Подписи у значка взаимодействия")]
+        [SerializeField] private string _openPrompt = "Открыть";
+        [SerializeField] private string _closePrompt = "Закрыть";
+
         public float OpenAngle => _openAngle;
         public float Speed => _speed;
+        public string OpenPrompt => _openPrompt;
+        public string ClosePrompt => _closePrompt;
     }
 }

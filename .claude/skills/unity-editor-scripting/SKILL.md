@@ -24,6 +24,8 @@ description: Как менять сцены, префабы, материалы,
 - `Game.Gameplay.Player.PlayerSettings` совпадает по имени с `UnityEditor.PlayerSettings`. В editor-коде - алиас: `using PlayerSettings = Game.Gameplay.Player.PlayerSettings;`.
 - Компонент, которому нужны ссылки до `Awake`, собирай выключенным: `go.SetActive(false)` -> `AddComponent` -> `Init(...)` / `SetReference` -> `SetActive(true)`. В edit mode `Awake` не вызывается, в PlayMode-тестах - вызывается сразу при `AddComponent` на активном объекте.
 - Движущиеся объекты (двери, ящики) не помечать `isStatic` - static batching зафиксирует их.
+- Компонент с `[RequireComponent(typeof(X))]` добавляй **после** X - иначе Unity сам добавит X, и следующий `AddComponent<X>` создаст второй.
+- UI - на UI Toolkit (встроен в движок, новых ссылок asmdef не требует): `UIDocument` + `PanelSettings`, вёрстка собирается в C#, оформление - `.uss`. Без темы (`.tss`) в PanelSettings стандартные контролы не отрисуются.
 - `EditorSceneManager.NewScene(..., Single)` выгружает неиспользуемые ассеты: ссылки на ассеты, полученные **до** неё, становятся пустыми (в сцену запишется `{fileID: 0}`). Загружай ассеты после создания сцены.
 
 ## Идемпотентность
@@ -74,6 +76,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File Tools\unity-exec.ps1 Game.Editor.S
 |---|---|---|---|
 | `GreyboxRoomBuilder` | Tools/Gostgame/Build Greybox Room | `Game.Editor.Scenes.GreyboxRoomBuilder.BuildFromCommandLine` | Сцена `Assets/_Game/Scenes/Greybox_Room.unity`: комната 8x8x3 м, дверь (компонент `Door`) с пивотом на петле, коридор, 4 точки появления, свет, игрок на `SpawnPoint_1`; материалы в `_Game/Art/Materials`. Сначала вызывает `PlayerPrefabBuilder` |
 | `PlayerPrefabBuilder` | Tools/Gostgame/Build Player Prefab | `Game.Editor.Prefabs.PlayerPrefabBuilder.BuildFromCommandLine` | Ассеты настроек в `_Game/Data` (Player/Equipment/Interaction; существующие не трогает) и префаб `_Game/Prefabs/Player.prefab` (перезаписывается: настраивать значения в ассетах) |
+| `UiAssetsBuilder` | Tools/Gostgame/Build UI Assets | `Game.Editor.UiAssets.UiAssetsBuilder.BuildFromCommandLine` | `_Game/Data/UI/GamePanelSettings.asset` (тема `_Game/Art/UI/GameTheme.tss`, 1920x1080) и `_Game/Data/Settings/ControlSettingsConfig.asset`. Стили `.uss`/`.tss` - текстовые файлы в `_Game/Art/UI`, правятся напрямую. `GreyboxRoomBuilder` вызывает его и добавляет в сцену SettingsManager, HUD и SettingsMenu |
 | `EditorAssetUtility` | - | - | Общие helpers: `EnsureFolder`, `LoadOrCreateScriptableObject<T>`, `SetReference` (запись в `[SerializeField] private`) |
 
 Новый инструмент - добавь строку сюда.

@@ -17,7 +17,9 @@ namespace Game.Gameplay.Interaction
 
         /// <summary>Аргумент - новое IsOpen. Сетевой слой подпишется сюда, чтобы разослать состояние.</summary>
         public event Action<bool> StateChanged;
+        public event Action PromptChanged;
 
+        public string Prompt => _model == null ? string.Empty : _model.IsOpen ? _settings.ClosePrompt : _settings.OpenPrompt;
         public bool IsOpen => _model.IsOpen;
         public float Angle => _model.Angle;
         public float OpenAngle => _model.OpenAngle;
@@ -76,6 +78,7 @@ namespace Game.Gameplay.Interaction
         {
             enabled = true;
             StateChanged?.Invoke(open);
+            PromptChanged?.Invoke();
         }
     }
 }
